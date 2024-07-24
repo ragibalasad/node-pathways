@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useMemo } from "react";
+import { astar } from "../lib/pathfinding"; // Adjust the path as necessary
 
 const Tilemap = () => {
   const [scale, setScale] = useState(1);
@@ -8,6 +9,10 @@ const Tilemap = () => {
   const [startCoords, setStartCoords] = useState({ x: 0, y: 0 });
   const [scrollPos, setScrollPos] = useState({ x: 0, y: 0 });
   const [activeTiles, setActiveTiles] = useState(new Set());
+  const [startNode, setStartNode] = useState(null);
+  const [endNode, setEndNode] = useState(null);
+  const [path, setPath] = useState([]);
+  const [pathfindingMode, setPathfindingMode] = useState(false);
 
   const handleMouseDown = (e) => {
     setIsDragging(true);
@@ -48,7 +53,6 @@ const Tilemap = () => {
     });
   };
 
-  // Calculate tile center positions considering the margin
   const tilePositions = useMemo(() => {
     const positions = {};
     for (let i = 0; i < gridSize * gridSize; i++) {
@@ -61,7 +65,6 @@ const Tilemap = () => {
     return positions;
   }, [gridSize, tileSize, margin]);
 
-  // Calculate distances and filter connections
   const connections = useMemo(() => {
     const connections = [];
     const activeTileIndices = Array.from(activeTiles);
@@ -86,6 +89,40 @@ const Tilemap = () => {
     }
     return connections;
   }, [activeTiles, tilePositions, maxDistance]);
+
+  const handleTileClick = (index) => {
+    if (pathfindingMode) {
+      if (startNode === null) {
+        setStartNode(index);
+      } else if (endNode === null) {
+        setEndNode(index);
+      }
+    } else {
+      toggleTile(index);
+    }
+  };
+
+  const findPath = () => {
+    if (startNode !== null && endNode !== null) {
+      const foundPath = astar(Array.from(activeTiles), startNode, endNode);
+      setPath(foundPath);
+      setPathfindingMode(false); // Exit pathfinding mode after finding the path
+    } else {
+      alert("Please select both start and end nodes.");
+    }
+  };
+
+  const activatePathfinding = () => {
+    if (activeTiles.size < 2) {
+      alert("Please activate at least 2 nodes to find a path.");
+      return;
+    }
+    setPathfindingMode(true);
+    setStartNode(null);
+    setEndNode(null);
+    setPath([]);
+    alert("Click on the start node, then the end node.");
+  };
 
   const hugeWidth = gridSize * (tileSize + margin) - margin;
   const hugeHeight = gridSize * (tileSize + margin) - margin;
@@ -131,6 +168,38 @@ const Tilemap = () => {
           </svg>
         )}
 
+        <svg
+          className="absolute w-full h-full"
+          style={{
+            left: 0,
+            top: 0,
+            pointerEvents: "none",
+          }}
+        >
+          {path.map((node, index) => (
+            <circle
+              key={index}
+              cx={tilePositions[node].x}
+              cy={tilePositions[node].y}
+              r="10"
+              fill="red"
+            />
+          ))}
+          {path.length > 0 && (
+            <path
+              d={path
+                .map((node, index) => {
+                  const { x, y } = tilePositions[node];
+                  return index === 0 ? `M${x},${y}` : `L${x},${y}`;
+                })
+                .join(" ")}
+              stroke="blue"
+              strokeWidth="4"
+              fill="none"
+            />
+          )}
+        </svg>
+
         <div
           className="grid"
           style={{
@@ -141,7 +210,7 @@ const Tilemap = () => {
           {Array.from({ length: gridSize * gridSize }).map((_, index) => (
             <div
               key={index}
-              onClick={() => toggleTile(index)}
+              onClick={() => handleTileClick(index)}
               className="flex items-center justify-center cursor-pointer m-0 overflow-hidden"
               style={{
                 width: `${tileSize}px`,
@@ -151,6 +220,8 @@ const Tilemap = () => {
               <div
                 className={`rounded-full cursor-pointer box-border ${
                   activeTiles.has(index) ? "bg-green-500" : "bg-gray-300"
+                } ${startNode === index ? "border-2 border-blue-500" : ""} ${
+                  endNode === index ? "border-2 border-red-500" : ""
                 }`}
                 style={{
                   width: `${tileSize}px`,
@@ -173,6 +244,18 @@ const Tilemap = () => {
         </button>
         <button className="p-2 bg-red-500 text-white rounded" onClick={zoomOut}>
           Zoom Out
+        </button>
+        <button
+          className="p-2 bg-green-500 text-white rounded"
+          onClick={activatePathfinding}
+        >
+          Find Path
+        </button>
+        <button
+          className="p-2 bg-yellow-500 text-white rounded"
+          onClick={findPath}
+        >
+          Confirm Path
         </button>
       </div>
     </div>
