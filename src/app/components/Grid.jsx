@@ -1,18 +1,24 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
-import { astar } from "../lib/pathfinding"; // Adjust the path as necessary
+import React, { useState, useMemo, useCallback } from "react";
+import { astar } from "../lib/pathfinding.js"; // Adjust the path as necessary
 
 const Tilemap = () => {
   const [scale, setScale] = useState(1);
   const [isDragging, setIsDragging] = useState(false);
   const [startCoords, setStartCoords] = useState({ x: 0, y: 0 });
   const [scrollPos, setScrollPos] = useState({ x: 0, y: 0 });
-  const [activeTiles, setActiveTiles] = useState(new Set());
+  const [activeTiles, setActiveTiles] = useState([]);
   const [startNode, setStartNode] = useState(null);
   const [endNode, setEndNode] = useState(null);
   const [path, setPath] = useState([]);
   const [pathfindingMode, setPathfindingMode] = useState(false);
+  const [tooltip, setTooltip] = useState({
+    visible: false,
+    x: 0,
+    y: 0,
+    text: "",
+  });
 
   const handleMouseDown = (e) => {
     setIsDragging(true);
@@ -36,18 +42,21 @@ const Tilemap = () => {
   const zoomOut = () => setScale((prev) => prev / 1.1);
 
   const tileSize = 48; // Size of each tile when active
-  const inactiveScale = 0.25; // Scale of inactive tiles
+  const inactiveScale = 0.2; // Scale of inactive tiles
   const margin = 32; // Margin between tiles
   const gridSize = 20; // Number of tiles in each row/column
-  const maxDistance = 5 * (tileSize + margin); // Maximum distance between tiles to draw a line
+  const maxDistance = 4 * (tileSize + margin); // Maximum distance between tiles to draw a line
 
-  const toggleTile = (index) => {
+  const toggleTile = (coords) => {
     setActiveTiles((prev) => {
-      const newActiveTiles = new Set(prev);
-      if (newActiveTiles.has(index)) {
-        newActiveTiles.delete(index);
+      const newActiveTiles = prev.map((tile) => ({ ...tile }));
+      const index = newActiveTiles.findIndex(
+        (tile) => tile.x === coords.x && tile.y === coords.y
+      );
+      if (index !== -1) {
+        newActiveTiles.splice(index, 1);
       } else {
-        newActiveTiles.add(index);
+        newActiveTiles.push(coords);
       }
       return newActiveTiles;
     });
@@ -55,77 +64,82 @@ const Tilemap = () => {
 
   const tilePositions = useMemo(() => {
     const positions = {};
-    for (let i = 0; i < gridSize * gridSize; i++) {
-      const row = Math.floor(i / gridSize);
-      const col = i % gridSize;
-      const x = col * (tileSize + margin) + tileSize / 2;
-      const y = row * (tileSize + margin) + tileSize / 2;
-      positions[i] = { x, y };
+    for (let row = 0; row < gridSize; row++) {
+      for (let col = 0; col < gridSize; col++) {
+        const x = col * (tileSize + margin) + tileSize / 2;
+        const y = row * (tileSize + margin) + tileSize / 2;
+        positions[`${row},${col}`] = { x, y };
+      }
     }
     return positions;
   }, [gridSize, tileSize, margin]);
 
   const connections = useMemo(() => {
-    const connections = [];
-    const activeTileIndices = Array.from(activeTiles);
-    for (let i = 0; i < activeTileIndices.length; i++) {
-      for (let j = i + 1; j < activeTileIndices.length; j++) {
-        const index1 = activeTileIndices[i];
-        const index2 = activeTileIndices[j];
-        const pos1 = tilePositions[index1];
-        const pos2 = tilePositions[index2];
+    const connections = activeTiles.reduce((acc, tile) => {
+      const connectedTiles = activeTiles.filter((otherTile) => {
+        if (tile.x === otherTile.x && tile.y === otherTile.y) return false;
+        const pos1 = tilePositions[`${tile.x},${tile.y}`];
+        const pos2 = tilePositions[`${otherTile.x},${otherTile.y}`];
         const distance = Math.sqrt(
           Math.pow(pos1.x - pos2.x, 2) + Math.pow(pos1.y - pos2.y, 2)
         );
-        if (distance <= maxDistance) {
-          connections.push({
-            x1: pos1.x,
-            y1: pos1.y,
-            x2: pos2.x,
-            y2: pos2.y,
-          });
-        }
-      }
-    }
+        return distance <= maxDistance;
+      });
+      acc.push({
+        tile,
+        connectedTiles,
+      });
+      return acc;
+    }, []);
     return connections;
   }, [activeTiles, tilePositions, maxDistance]);
 
-  const handleTileClick = (index) => {
+  const handleTileClick = (coords) => {
     if (pathfindingMode) {
+      const index = activeTiles.findIndex(
+        (tile) => tile.x === coords.x && tile.y === coords.y
+      );
+      if (index === -1) return;
       if (startNode === null) {
-        setStartNode(index);
+        setStartNode(coords);
       } else if (endNode === null) {
-        setEndNode(index);
+        setEndNode(coords);
       }
     } else {
-      toggleTile(index);
+      toggleTile(coords);
     }
   };
 
-  const findPath = () => {
-    if (startNode !== null && endNode !== null) {
-      const foundPath = astar(Array.from(activeTiles), startNode, endNode);
-      setPath(foundPath);
-      setPathfindingMode(false); // Exit pathfinding mode after finding the path
-    } else {
-      alert("Please select both start and end nodes.");
-    }
+  const handleTileMouseEnter = (coords) => {
+    const position = tilePositions[`${coords.x},${coords.y}`];
+    setTooltip({
+      visible: true,
+      x: position.x,
+      y: position.y,
+      text: `(${coords.x}, ${coords.y})`,
+    });
   };
 
-  const activatePathfinding = () => {
-    if (activeTiles.size < 2) {
-      alert("Please activate at least 2 nodes to find a path.");
-      return;
-    }
-    setPathfindingMode(true);
-    setStartNode(null);
-    setEndNode(null);
-    setPath([]);
-    alert("Click on the start node, then the end node.");
+  const handleTileMouseLeave = () => {
+    setTooltip({ visible: false, x: 0, y: 0, text: "" });
   };
 
   const hugeWidth = gridSize * (tileSize + margin) - margin;
   const hugeHeight = gridSize * (tileSize + margin) - margin;
+
+  const getTooltipPosition = useCallback(() => {
+    if (tooltip.visible) {
+      const scaledX = tooltip.x * scale + scrollPos.x;
+      const scaledY = tooltip.y * scale + scrollPos.y;
+      return {
+        top: scaledY - 20,
+        left: scaledX + 10,
+      };
+    }
+    return { top: 0, left: 0 };
+  }, [tooltip, scale, scrollPos]);
+
+  const tooltipPosition = getTooltipPosition();
 
   return (
     <div
@@ -142,63 +156,40 @@ const Tilemap = () => {
           transform: `translate(${scrollPos.x}px, ${scrollPos.y}px) scale(${scale})`,
           transformOrigin: "0 0",
           cursor: isDragging ? "grabbing" : "grab",
+          position: "relative", // Ensure relative positioning for child elements
         }}
       >
         {connections.length > 0 && (
           <svg
-            className="absolute w-full h-full"
+            className="absolute w-full h-full z-10"
             style={{
               left: 0,
               top: 0,
               pointerEvents: "none",
             }}
           >
-            {connections.map((line, index) => (
-              <line
-                key={index}
-                x1={line.x1}
-                y1={line.y1}
-                x2={line.x2}
-                y2={line.y2}
-                stroke="lightgreen"
-                strokeWidth="5"
-                strokeLinecap="round"
-              />
-            ))}
+            {connections.map(({ tile, connectedTiles }, index) =>
+              connectedTiles.map((connectedTile, subIndex) => {
+                const pos1 = tilePositions[`${tile.x},${tile.y}`];
+                const pos2 =
+                  tilePositions[`${connectedTile.x},${connectedTile.y}`];
+                return (
+                  <line
+                    key={`${index}-${subIndex}`}
+                    x1={pos1.x}
+                    y1={pos1.y}
+                    x2={pos2.x}
+                    y2={pos2.y}
+                    stroke="lightgreen"
+                    strokeWidth="10"
+                    strokeLinecap="round"
+                    stroke-opacity="0.4"
+                  />
+                );
+              })
+            )}
           </svg>
         )}
-
-        <svg
-          className="absolute w-full h-full"
-          style={{
-            left: 0,
-            top: 0,
-            pointerEvents: "none",
-          }}
-        >
-          {path.map((node, index) => (
-            <circle
-              key={index}
-              cx={tilePositions[node].x}
-              cy={tilePositions[node].y}
-              r="10"
-              fill="red"
-            />
-          ))}
-          {path.length > 0 && (
-            <path
-              d={path
-                .map((node, index) => {
-                  const { x, y } = tilePositions[node];
-                  return index === 0 ? `M${x},${y}` : `L${x},${y}`;
-                })
-                .join(" ")}
-              stroke="blue"
-              strokeWidth="4"
-              fill="none"
-            />
-          )}
-        </svg>
 
         <div
           className="grid"
@@ -207,55 +198,82 @@ const Tilemap = () => {
             gridTemplateRows: `repeat(${gridSize}, ${tileSize + margin}px)`,
           }}
         >
-          {Array.from({ length: gridSize * gridSize }).map((_, index) => (
-            <div
-              key={index}
-              onClick={() => handleTileClick(index)}
-              className="flex items-center justify-center cursor-pointer m-0 overflow-hidden"
-              style={{
-                width: `${tileSize}px`,
-                height: `${tileSize}px`,
-              }}
-            >
+          {Array.from({ length: gridSize * gridSize }).map((_, index) => {
+            const row = Math.floor(index / gridSize);
+            const col = index % gridSize;
+            const coords = { x: row, y: col };
+            return (
               <div
-                className={`rounded-full cursor-pointer box-border ${
-                  activeTiles.has(index) ? "bg-green-500" : "bg-gray-300"
-                } ${startNode === index ? "border-2 border-blue-500" : ""} ${
-                  endNode === index ? "border-2 border-red-500" : ""
-                }`}
+                key={index}
+                onClick={() => handleTileClick(coords)}
+                onMouseEnter={() => handleTileMouseEnter(coords)}
+                onMouseLeave={handleTileMouseLeave}
+                className="flex items-center justify-center cursor-pointer m-0 overflow-hidden"
                 style={{
                   width: `${tileSize}px`,
                   height: `${tileSize}px`,
-                  transform: `scale(${
-                    activeTiles.has(index) ? 1 : inactiveScale
-                  })`,
-                  transformOrigin: "center",
-                  transition: "background-color 0.3s ease, transform 0.3s ease",
                 }}
-              ></div>
-            </div>
-          ))}
+              >
+                <div
+                  className={`rounded-full cursor-pointer box-border ${
+                    activeTiles.some((tile) => tile.x === row && tile.y === col)
+                      ? "bg-green-500 z-20"
+                      : "bg-gray-300"
+                  } ${
+                    startNode && startNode.x === row && startNode.y === col
+                      ? "border-2 border-blue-500"
+                      : ""
+                  } ${
+                    endNode && endNode.x === row && endNode.y === col
+                      ? "border-2 border-red-500"
+                      : ""
+                  }`}
+                  style={{
+                    width: `${tileSize}px`,
+                    height: `${tileSize}px`,
+                    transform: `scale(${
+                      activeTiles.some(
+                        (tile) => tile.x === row && tile.y === col
+                      )
+                        ? 1
+                        : inactiveScale
+                    })`,
+                    transformOrigin: "center",
+                    transition:
+                      "background-color 0.3s ease, transform 0.3s ease",
+                  }}
+                ></div>
+              </div>
+            );
+          })}
         </div>
       </div>
 
-      <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 flex space-x-2">
+      {/* Tooltip */}
+      {tooltip.visible && (
+        <div
+          className="absolute bg-black text-white text-xs px-2 py-1 m-1 rounded"
+          style={{
+            top: `${tooltipPosition.top}px`, // Adjust top position
+            left: `${tooltipPosition.left}px`, // Adjust left position
+            pointerEvents: "none", // Ensure tooltip doesn't capture mouse events
+            transform: `scale(${1})`, // Reverse scale for tooltip
+            transformOrigin: "0 0", // Ensure tooltip scales correctly
+          }}
+        >
+          {tooltip.text}
+        </div>
+      )}
+
+      <div className="absolute bottom-4 z-30 left-1/2 transform -translate-x-1/2 flex space-x-2">
         <button className="p-2 bg-blue-500 text-white rounded" onClick={zoomIn}>
           Zoom In
         </button>
         <button className="p-2 bg-red-500 text-white rounded" onClick={zoomOut}>
           Zoom Out
         </button>
-        <button
-          className="p-2 bg-green-500 text-white rounded"
-          onClick={activatePathfinding}
-        >
+        <button className="p-2 bg-green-500 text-white rounded">
           Find Path
-        </button>
-        <button
-          className="p-2 bg-yellow-500 text-white rounded"
-          onClick={findPath}
-        >
-          Confirm Path
         </button>
       </div>
     </div>
