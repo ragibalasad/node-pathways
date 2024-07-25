@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useMemo, useCallback } from "react";
-import { astar } from "../lib/pathfinding.js"; // Adjust the path as necessary
+import { FaPlus, FaMinus, FaSearchLocation } from "react-icons/fa";
 
 const Tilemap = () => {
   const [scale, setScale] = useState(1);
@@ -266,14 +266,20 @@ const Tilemap = () => {
       )}
 
       <div className="absolute bottom-4 z-30 left-1/2 transform -translate-x-1/2 flex space-x-2">
-        <button className="p-2 bg-blue-500 text-white rounded" onClick={zoomIn}>
-          Zoom In
+        <button
+          className="flex my-auto p-2 bg-red-500 text-white rounded"
+          onClick={zoomOut}
+        >
+          <FaMinus />
         </button>
-        <button className="p-2 bg-red-500 text-white rounded" onClick={zoomOut}>
-          Zoom Out
+        <button
+          className="flex my-auto p-2 bg-blue-500 text-white rounded"
+          onClick={zoomIn}
+        >
+          <FaPlus />
         </button>
         <button className="p-2 bg-green-500 text-white rounded">
-          Find Path
+          <FaSearchLocation />
         </button>
       </div>
     </div>
