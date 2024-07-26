@@ -132,62 +132,72 @@ const InteractiveCanvas = () => {
             height: "100%",
           }}
         >
-          {nodes.map((node, index) => (
-            <g key={index}>
-              <defs>
-                <radialGradient
-                  id={`gradient-${index}`}
-                  cx="50%"
-                  cy="50%"
-                  r="50%"
-                  fx="50%"
-                  fy="50%"
-                >
-                  <stop
-                    offset="0%"
-                    style={{
-                      stopColor: "rgba(94, 234, 212, 0.5)",
-                      stopOpacity: 1,
-                    }}
-                  />
-                  <stop
-                    offset="100%"
-                    style={{
-                      stopColor: "rgba(94, 234, 212, 0.5)",
-                      stopOpacity: 0,
-                    }}
-                  />
-                </radialGradient>
-                {pulseEnabled && (
-                  <style>
-                    {`
-                      @keyframes pulse-${index} {
-                        0% {
-                          r: ${nodeSize / 2}px;
-                          opacity: 1;
-                        }
-                        100% {
-                          r: ${nodeSize * 15}px;
-                          opacity: 0;
-                        }
-                      }
-                      .pulse-${index} {
-                        animation: pulse-${index} 2s infinite;
-                      }
-                    `}
-                  </style>
-                )}
-              </defs>
+          <defs>
+            {pulseEnabled &&
+              nodes.map((node, index) => (
+                <style key={index}>
+                  {`
+                  @keyframes pulse-${index} {
+                    0% {
+                      r: ${nodeSize / 2}px;
+                      opacity: 1;
+                    }
+                    100% {
+                      r: ${nodeSize * 5}px;
+                      opacity: 0;
+                    }
+                  }
+                  .pulse-${index} {
+                    animation: pulse-${index} 2s infinite;
+                  }
+                `}
+                </style>
+              ))}
+            {nodes.map((_, index) => (
+              <radialGradient
+                key={index}
+                id={`gradient-${index}`}
+                cx="50%"
+                cy="50%"
+                r="50%"
+                fx="50%"
+                fy="50%"
+              >
+                <stop
+                  offset="0%"
+                  style={{
+                    stopColor: "rgba(94, 234, 212, 0.5)",
+                    stopOpacity: 1,
+                  }}
+                />
+                <stop
+                  offset="100%"
+                  style={{
+                    stopColor: "rgba(94, 234, 212, 0.5)",
+                    stopOpacity: 0,
+                  }}
+                />
+              </radialGradient>
+            ))}
+          </defs>
+          <g>
+            {nodes.map((node, index) => (
               <circle
+                key={`gradient-${index}`}
                 cx={node.x}
                 cy={node.y}
-                r={nodeSize * 15}
+                r={nodeSize * 5}
                 fill={`url(#gradient-${index})`}
                 className={pulseEnabled ? `pulse-${index}` : ""}
                 style={{ pointerEvents: "none" }}
                 opacity={0.5}
               />
+            ))}
+          </g>
+          <g>
+            {nodes.map((node, index) => (
               <circle
+                key={index}
                 cx={node.x}
                 cy={node.y}
                 r={nodeSize / 2}
@@ -195,8 +205,8 @@ const InteractiveCanvas = () => {
                 stroke="#F0FDFA"
                 strokeWidth="2"
               />
-            </g>
-          ))}
+            ))}
+          </g>
         </svg>
       </div>
       <div className="absolute bottom-10 left-1/2 transform -translate-x-1/2 z-10 space-x-2">
