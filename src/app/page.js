@@ -110,7 +110,7 @@ const InteractiveCanvas = () => {
         ref={canvasRef}
         onMouseDown={handleMouseDown}
         onContextMenu={handleContextMenu}
-        className="absolute bg-gray-200"
+        className="absolute bg-slate-50"
         style={{
           width: "3000px",
           height: "3000px",
@@ -142,8 +142,12 @@ const InteractiveCanvas = () => {
                       r: ${nodeSize / 2}px;
                       opacity: 1;
                     }
+                    50% {
+                      r: ${nodeSize * 20}px;
+                      opacity: 0.5;
+                    }
                     100% {
-                      r: ${nodeSize * 5}px;
+                      r: ${nodeSize * 20}px;
                       opacity: 0;
                     }
                   }
@@ -166,7 +170,7 @@ const InteractiveCanvas = () => {
                 <stop
                   offset="0%"
                   style={{
-                    stopColor: "rgba(94, 234, 212, 0.5)",
+                    stopColor: "rgba(94, 234, 212, 1)",
                     stopOpacity: 1,
                   }}
                 />
@@ -174,7 +178,7 @@ const InteractiveCanvas = () => {
                   offset="100%"
                   style={{
                     stopColor: "rgba(94, 234, 212, 0.5)",
-                    stopOpacity: 0,
+                    stopOpacity: 0.1,
                   }}
                 />
               </radialGradient>
@@ -186,7 +190,7 @@ const InteractiveCanvas = () => {
                 key={`gradient-${index}`}
                 cx={node.x}
                 cy={node.y}
-                r={nodeSize * 5}
+                r={nodeSize * 15}
                 fill={`url(#gradient-${index})`}
                 className={pulseEnabled ? `pulse-${index}` : ""}
                 style={{ pointerEvents: "none" }}
