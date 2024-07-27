@@ -5,7 +5,7 @@ export default function Home() {
   return (
     <div className="">
       <main>
-        <InteractiveCanvas />
+        <Grid />
       </main>
     </div>
   );
