@@ -1,4 +1,3 @@
-import Grid from "../app/components/Grid.jsx";
 import InteractiveCanvas from "./components/InteractiveCanvas.jsx";
 
 export default function Home() {
